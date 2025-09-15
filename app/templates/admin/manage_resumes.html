@@ -1,0 +1,615 @@
+{% extends "admin/dashboard.html" %}
+
+{% block title %}Manage Resumes - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Manage Resumes</h1>
+        <div>
+            <a href="{{ url_for('admin.export_resumes') }}" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm me-2">
+                <i class="fas fa-download fa-sm text-white-50"></i> Export to Excel
+            </a>
+            <button class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#bulkUploadModal">
+                <i class="fas fa-upload fa-sm text-white-50"></i> Bulk Upload
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Filter Resumes</h6>
+            <button class="btn btn-link text-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <i class="fas fa-filter"></i> Toggle Filters
+            </button>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="processing" {% if request.args.get('status') == 'processing' %}selected{% endif %}>Processing</option>
+                            <option value="processed" {% if request.args.get('status') == 'processed' %}selected{% endif %}>Processed</option>
+                            <option value="error" {% if request.args.get('status') == 'error' %}selected{% endif %}>Error</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="job_id" class="form-label">Job Position</label>
+                        <select class="form-select" id="job_id" name="job_id">
+                            <option value="">All Jobs</option>
+                            {% for job in all_jobs %}
+                            <option value="{{ job.id }}" {% if request.args.get('job_id')|int == job.id %}selected{% endif %}>
+                                {{ job.title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">Date From</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">Date To</label>
+                        <div class="input-group">
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearDateFilters()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search by name, email, or skills..." name="q" value="{{ request.args.get('q', '') }}">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                            <a href="{{ url_for('admin.manage_resumes') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync-alt"></i> Reset
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumes Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Resumes</h6>
+            <div>
+                <span class="badge bg-primary rounded-pill">{{ pagination.total }} total</span>
+                <span class="badge bg-success rounded-pill">{{ stats.processed }} processed</span>
+                <span class="badge bg-warning text-dark rounded-pill">{{ stats.pending }} pending</span>
+                <span class="badge bg-danger rounded-pill">{{ stats.error }} errors</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="resumesTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Candidate</th>
+                            <th>Contact</th>
+                            <th>Job Position</th>
+                            <th>Skills</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resume in resumes %}
+                        <tr>
+                            <td>#{{ resume.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar me-2">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">{{ resume.name or 'N/A' }}</h6>
+                                        <small class="text-muted">
+                                            <i class="far fa-clock me-1"></i> {{ resume.upload_date.strftime('%Y-%m-%d') }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if resume.email %}
+                                    <div><i class="fas fa-envelope me-1 text-muted"></i> {{ resume.email }}</div>
+                                {% endif %}
+                                {% if resume.phone %}
+                                    <div><i class="fas fa-phone me-1 text-muted"></i> {{ resume.phone }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resume.job %}
+                                    <a href="{{ url_for('admin.view_job', job_id=resume.job.id) }}" class="text-decoration-none">
+                                        {{ resume.job.title }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Not specified</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resume.skills %}
+                                    <div class="skill-tags">
+                                        {% for skill in resume.skills|from_json|slice(3) %}
+                                            <span class="badge bg-light text-dark mb-1">{{ skill }}</span>
+                                        {% endfor %}
+                                        {% if (resume.skills|from_json|length) > 3 %}
+                                            <span class="badge bg-secondary">+{{ (resume.skills|from_json|length) - 3 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No skills listed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resume.score is not none %}
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if resume.score >= 80 %}bg-success{% elif resume.score >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ resume.score }}%" 
+                                         aria-valuenow="{{ resume.score }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ "%.0f"|format(resume.score) }}%
+                                    </div>
+                                </div>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if resume.status == 'processed' %}bg-success
+                                                    {% elif resume.status == 'processing' %}bg-warning text-dark
+                                                    {% elif resume.status == 'error' %}bg-danger
+                                                    {% else %}bg-secondary{% endif %} p-2">
+                                    {{ resume.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ resume.upload_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin.view_resume', resume_id=resume.id) }}" 
+                                       class="btn btn-sm btn-info" 
+                                       data-bs-toggle="tooltip" 
+                                       title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.download_resume', resume_id=resume.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Download">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-warning" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#reprocessModal{{ resume.id }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="Reprocess">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ resume.id }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Delete Modal -->
+                                <div class="modal fade" id="deleteModal{{ resume.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Deletion</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete this resume?</p>
+                                                <p class="mb-0"><strong>File:</strong> {{ resume.original_filename }}</p>
+                                                <p class="mb-0"><strong>Candidate:</strong> {{ resume.name or 'N/A' }}</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form action="{{ url_for('admin.delete_resume', resume_id=resume.id) }}" method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-trash me-1"></i> Delete
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Reprocess Modal -->
+                                <div class="modal fade" id="reprocessModal{{ resume.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Reprocess Resume</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to reprocess this resume?</p>
+                                                <p class="small text-muted">This will update the extracted information and recalculate the match score.</p>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="forceReprocess{{ resume.id }}">
+                                                    <label class="form-check-label" for="forceReprocess{{ resume.id }}">
+                                                        Force reprocess (ignore cache)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form action="{{ url_for('admin.reprocess_resume', resume_id=resume.id) }}" method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <input type="hidden" name="force" value="false" id="forceReprocessValue{{ resume.id }}">
+                                                    <button type="submit" class="btn btn-warning" id="reprocessBtn{{ resume.id }}">
+                                                        <i class="fas fa-sync-alt me-1"></i> Reprocess
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <h5>No resumes found</h5>
+                                    <p class="mb-0">Upload resumes to get started</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-muted">
+                    Showing <span class="fw-bold">{{ pagination.first }}</span> to <span class="fw-bold">{{ pagination.last }}</span> of 
+                    <span class="fw-bold">{{ pagination.total }}</span> entries
+                </div>
+                <nav aria-label="Resume pagination">
+                    <ul class="pagination mb-0">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.manage_resumes', page=pagination.prev_num, **request.args) }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&laquo;</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=3) %}
+                            {% if page_num %}
+                                {% if page_num != pagination.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.manage_resumes', page=page_num, **request.args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active" aria-current="page">
+                                    <span class="page-link">
+                                        {{ page_num }}
+                                        <span class="visually-hidden">(current)</span>
+                                    </span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.manage_resumes', page=pagination.next_num, **request.args) }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&raquo;</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Upload Modal -->
+<div class="modal fade" id="bulkUploadModal" tabindex="-1" aria-labelledby="bulkUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkUploadModalLabel">Bulk Upload Resumes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.bulk_upload') }}" method="POST" enctype="multipart/form-data" id="bulkUploadForm">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Upload multiple resume files (PDF/DOCX) at once. You can select multiple files or upload a ZIP archive.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="resumeFiles" class="form-label">Select Files</label>
+                        <input class="form-control" type="file" id="resumeFiles" name="files" multiple accept=".pdf,.docx,.zip" required>
+                        <div class="form-text">Accepted file types: .pdf, .docx, .zip (Max: 50MB)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="jobId" class="form-label">Associate with Job (Optional)</label>
+                        <select class="form-select" id="jobId" name="job_id">
+                            <option value="">-- Select Job --</option>
+                            {% for job in all_jobs %}
+                            <option value="{{ job.id }}">{{ job.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="overwriteExisting" name="overwrite_existing">
+                            <label class="form-check-label" for="overwriteExisting">
+                                Overwrite existing resumes with the same filename
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="progress d-none" id="uploadProgress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    
+                    <div id="uploadStatus" class="d-none mt-3">
+                        <h6>Upload Status</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>File</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="uploadStatusBody">
+                                    <!-- Status will be added here dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <i class="fas fa-upload me-1"></i> Upload Resumes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .skill-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .skill-tags .badge {
+        font-weight: normal;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
+    
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+    
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .progress {
+        height: 10px;
+        border-radius: 5px;
+    }
+    
+    .progress-bar {
+        font-size: 0.7rem;
+        line-height: 10px;
+    }
+    
+    /* Custom scrollbar for table */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Enable tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Initialize DataTable
+    document.addEventListener('DOMContentLoaded', function() {
+        $('#resumesTable').DataTable({
+            "order": [[0, "desc"]],
+            "pageLength": 25,
+            "responsive": true,
+            "dom": "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                   "<'row'<'col-sm-12'tr>>" +
+                   "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search...",
+                "lengthMenu": "Show _MENU_ entries",
+                "info": "Showing _START_ to _END_ of _TOTAL_ entries",
+                "infoEmpty": "No entries found",
+                "infoFiltered": "(filtered from _MAX_ total entries)",
+                "paginate": {
+                    "previous": "<i class='fas fa-chevron-left'></i>",
+                    "next": "<i class='fas fa-chevron-right'></i>"
+                }
+            },
+            "columnDefs": [
+                { "orderable": false, "targets": [8] } // Disable sorting on actions column
+            ]
+        });
+    });
+    
+    // Handle force reprocess checkbox
+    document.querySelectorAll('[id^=forceReprocess]').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const resumeId = this.id.replace('forceReprocess', '');
+            document.getElementById('forceReprocessValue' + resumeId).value = this.checked;
+        });
+    });
+    
+    // Clear date filters
+    function clearDateFilters() {
+        document.getElementById('date_from').value = '';
+        document.getElementById('date_to').value = '';
+    }
+    
+    // Handle bulk upload form submission
+    document.getElementById('bulkUploadForm')?.addEventListener('submit', function(e) {
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadStatusBody = document.getElementById('uploadStatusBody');
+        
+        // Show progress bar and status
+        uploadProgress.classList.remove('d-none');
+        uploadStatus.classList.remove('d-none');
+        uploadStatusBody.innerHTML = '';
+        uploadBtn.disabled = true;
+        
+        // Simulate upload progress (in a real app, you would use AJAX with progress events)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += 5;
+            if (progress > 90) clearInterval(progressInterval);
+            
+            const progressBar = uploadProgress.querySelector('.progress-bar');
+            progressBar.style.width = progress + '%';
+            progressBar.setAttribute('aria-valuenow', progress);
+            
+            // Add sample status (in a real app, this would come from the server)
+            if (progress % 20 === 0) {
+                const files = document.getElementById('resumeFiles').files;
+                const fileIndex = Math.min(Math.floor(progress / 20), files.length - 1);
+                
+                if (files[fileIndex]) {
+                    const status = progress > 70 ? 'success' : 'processing';
+                    const statusText = status === 'success' ? 'Uploaded' : 'Uploading...';
+                    const statusClass = status === 'success' ? 'text-success' : 'text-warning';
+                    
+                    uploadStatusBody.innerHTML += `
+                        <tr>
+                            <td>${files[fileIndex].name}</td>
+                            <td class="${statusClass}">
+                                <i class="fas fa-${status === 'success' ? 'check-circle' : 'spinner fa-spin'}"></i>
+                                ${statusText}
+                            </td>
+                        </tr>
+                    `;
+                    
+                    // Scroll to bottom of status
+                    uploadStatus.scrollTop = uploadStatus.scrollHeight;
+                }
+            }
+        }, 300);
+        
+        // In a real app, you would submit the form via AJAX and handle the response
+        // For now, we'll just simulate a successful upload after a delay
+        setTimeout(() => {
+            clearInterval(progressInterval);
+            const progressBar = uploadProgress.querySelector('.progress-bar');
+            progressBar.style.width = '100%';
+            progressBar.setAttribute('aria-valuenow', 100);
+            progressBar.classList.remove('progress-bar-animated');
+            
+            // Show success message
+            uploadStatusBody.innerHTML += `
+                <tr>
+                    <td colspan="2" class="text-center text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Upload completed successfully!
+                    </td>
+                </tr>
+            `;
+            
+            // Reload the page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        }, 3000);
+        
+        // Prevent the form from actually submitting (for demo purposes)
+        e.preventDefault();
+        return false;
+    });
+</script>
+{% endblock %}

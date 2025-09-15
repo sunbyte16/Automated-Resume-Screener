@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.title }} - Job Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Job Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">{{ job.title }}</h2>
+                        {% if current_user.is_admin %}
+                        <div class="btn-group">
+                            <a href="{{ url_for('admin.edit_job', job_id=job.id) }}" class="btn btn-light btn-sm">
+                                <i class="fas fa-edit me-1"></i> Edit
+                            </a>
+                            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="fas fa-trash me-1"></i> Delete
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <i class="fas fa-map-marker-alt me-2 text-muted"></i>
+                                <strong>Location:</strong> {{ job.location or 'Remote' }}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-briefcase me-2 text-muted"></i>
+                                <strong>Type:</strong> {{ job.job_type or 'Full-time' }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <i class="fas fa-calendar me-2 text-muted"></i>
+                                <strong>Posted:</strong> {{ job.created_at.strftime('%B %d, %Y') }}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-tag me-2 text-muted"></i>
+                                <strong>Department:</strong> {{ job.department or 'General' }}
+                            </p>
+                                </div>
+                            </div>
+                            
+                    {% if current_user.is_authenticated %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                            <i class="fas fa-upload me-2"></i>Upload Resume for This Job
+                        </button>
+                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+            <!-- Job Description -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Job Description
+                    </h5>
+                                </div>
+                                        <div class="card-body">
+                    <div class="job-description">
+                        {{ job.description|nl2br|safe }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requirements -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-check me-2"></i>
+                        Requirements
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="requirements">
+                        {{ job.requirements|nl2br|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Quick Apply -->
+            {% if current_user.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>
+                        Quick Apply
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Upload your resume to get an instant analysis against this job description.</p>
+                    <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-upload me-2"></i>Upload Resume
+                        </button>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Login Required
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Please log in to upload your resume and get an analysis.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus me-2"></i>Register
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Job Stats -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Job Statistics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-primary mb-0">{{ job.resumes|length }}</h4>
+                            <small class="text-muted">Resumes</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success mb-0">
+                                {% if job.resumes %}
+                                    {{ (job.resumes|selectattr('score', 'ge', 70)|list|length) }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </h4>
+                            <small class="text-muted">Good Matches</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Jobs -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-briefcase me-2"></i>
+                        Related Jobs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% set related_jobs = Job.query.filter(Job.id != job.id, Job.is_active == True).limit(3).all() %}
+                    {% if related_jobs %}
+                        {% for related_job in related_jobs %}
+                        <div class="mb-3">
+                            <h6 class="mb-1">
+                                <a href="{{ url_for('main.view_job', job_id=related_job.id) }}" class="text-decoration-none">
+                                    {{ related_job.title }}
+                                </a>
+                            </h6>
+                            <p class="text-muted small mb-0">
+                                {{ related_job.created_at.strftime('%b %d, %Y') }}
+                            </p>
+                        </div>
+                        {% if not loop.last %}<hr class="my-2">{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small">No other jobs available at the moment.</p>
+                        {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Resume Modal -->
+{% if current_user.is_authenticated %}
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Upload Resume for {{ job.title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <div class="modal-body">
+                    <input type="hidden" name="job_id" value="{{ job.id }}">
+                    <div class="mb-3">
+                        <label for="resume" class="form-label">Select Resume (PDF or DOCX)</label>
+                        <input class="form-control" type="file" id="resume" name="resume" accept=".pdf,.docx" required>
+                        <div class="form-text">Maximum file size: 16MB</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Your resume will be automatically analyzed against this job description.
+                    </div>
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+                        </div>
+            </form>
+                        </div>
+                        </div>
+                        </div>
+{% endif %}
+
+<!-- Delete Confirmation Modal -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the job posting for <strong>{{ job.title }}</strong>? This action cannot be undone.</p>
+                <p class="mb-0 text-muted small">This will not affect resumes that have already been submitted for this position.</p>
+                        </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('admin.delete_job', job_id=job.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Job
+                            </button>
+                    </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

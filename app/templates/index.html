@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Resume Screener{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Automated Resume Screener</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">Upload your resume and let our AI-powered system analyze and rank it against job descriptions.</p>
+                
+                {% if current_user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> How it works:</h5>
+                        <ol class="mb-0">
+                            <li>Upload your resume (PDF or DOCX)</li>
+                            <li>Our system will extract and analyze the content</li>
+                            <li>View your resume score and insights</li>
+                            <li>Compare with job requirements</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                            <i class="fas fa-upload me-2"></i>Upload Resume
+                        </button>
+                        <a href="{{ url_for('main.list_jobs') }}" class="btn btn-outline-primary btn-lg ms-2">
+                            <i class="fas fa-briefcase me-2"></i>Browse Jobs
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Please log in to upload and analyze resumes</h5>
+                        <p class="mb-0">
+                            <a href="{{ url_for('auth.login') }}" class="alert-link">Sign in</a> or 
+                            <a href="{{ url_for('auth.register') }}" class="alert-link">create an account</a> to get started.
+                        </p>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg me-2">
+                            <i class="fas fa-user-plus me-2"></i>Register Now
+                        </a>
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 70px; height: 70px; margin-bottom: 1rem;">
+                            <i class="fas fa-upload fa-2x"></i>
+                        </div>
+                        <h5 class="card-title">Upload Resume</h5>
+                        <p class="card-text text-muted">Easily upload your resume in PDF or DOCX format for analysis.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 70px; height: 70px; margin-bottom: 1rem;">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                        <h5 class="card-title">Get Insights</h5>
+                        <p class="card-text text-muted">Receive detailed analysis of your skills and experience.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="bg-info bg-opacity-10 text-info rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 70px; height: 70px; margin-bottom: 1rem;">
+                            <i class="fas fa-briefcase fa-2x"></i>
+                        </div>
+                        <h5 class="card-title">Match with Jobs</h5>
+                        <p class="card-text text-muted">Discover jobs that match your skills and experience.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Resume Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Upload Resume</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="resume" class="form-label">Select Resume (PDF or DOCX)</label>
+                        <input class="form-control" type="file" id="resume" name="resume" accept=".pdf,.docx" required>
+                        <div class="form-text">Maximum file size: 16MB</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="job_id" class="form-label">Job Position (Optional)</label>
+                        <select class="form-select" id="job_id" name="job_id">
+                            <option value="">Select a job position (optional)</option>
+                            {% for job in jobs %}
+                            <option value="{{ job.id }}">{{ job.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Show file name when selected
+    $('input[type="file"]').change(function(e) {
+        var fileName = e.target.files[0].name;
+        $(this).next('.custom-file-label').html(fileName);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Job Postings - Resume Screener{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-3">Available Job Postings</h1>
+            <p class="text-muted">Browse through our current job openings and find the perfect match for your skills and experience.</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('admin.create_job') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Add New Job
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('main.list_jobs') }}" class="row g-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" name="q" placeholder="Search jobs..." value="{{ request.args.get('q', '') }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" name="department">
+                        <option value="">All Departments</option>
+                        <option value="Engineering" {% if request.args.get('department') == 'Engineering' %}selected{% endif %}>Engineering</option>
+                        <option value="Design" {% if request.args.get('department') == 'Design' %}selected{% endif %}>Design</option>
+                        <option value="Product" {% if request.args.get('department') == 'Product' %}selected{% endif %}>Product</option>
+                        <option value="Marketing" {% if request.args.get('department') == 'Marketing' %}selected{% endif %}>Marketing</option>
+                        <option value="Sales" {% if request.args.get('department') == 'Sales' %}selected{% endif %}>Sales</option>
+                        <option value="HR" {% if request.args.get('department') == 'HR' %}selected{% endif %}>Human Resources</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Job Listings -->
+    {% if jobs %}
+        <div class="row row-cols-1 row-cols-md-2 g-4 mb-4">
+            {% for job in jobs %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <a href="{{ url_for('main.view_job', job_id=job.id) }}" class="text-decoration-none">{{ job.title }}</a>
+                            </h5>
+                            <span class="badge bg-primary">{{ job.department or 'General' }}</span>
+                        </div>
+                        
+                        <p class="text-muted small mb-3">
+                            <i class="fas fa-map-marker-alt me-1"></i> {{ job.location or 'Remote' }}
+                            <span class="mx-2">•</span>
+                            <i class="fas fa-briefcase me-1"></i> {{ job.job_type or 'Full-time' }}
+                        </p>
+                        
+                        <p class="card-text">
+                            {{ job.description[:200] }}{% if job.description|length > 200 %}...{% endif %}
+                        </p>
+                        
+                        <div class="mt-auto">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted small">
+                                    <i class="far fa-clock me-1"></i> Posted {{ job.created_at.strftime('%b %d, %Y') }}
+                                </span>
+                                <a href="{{ url_for('main.view_job', job_id=job.id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Details <i class="fas fa-arrow-right ms-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% if current_user.is_admin %}
+                    <div class="card-footer bg-transparent border-top-0 pt-0 text-end">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('admin.edit_job', job_id=job.id) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteJobModal{{ job.id }}">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Delete Confirmation Modal -->
+                    <div class="modal fade" id="deleteJobModal{{ job.id }}" tabindex="-1" aria-labelledby="deleteJobModalLabel{{ job.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteJobModalLabel{{ job.id }}">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Confirm Deletion
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to delete the job posting for <strong>{{ job.title }}</strong>? This action cannot be undone.</p>
+                                    <p class="mb-0 text-muted small">This will not affect resumes that have already been submitted for this position.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <form action="{{ url_for('admin.delete_job', job_id=job.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="fas fa-trash-alt me-1"></i> Delete Job
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Job pagination" class="mb-5">
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.list_jobs', page=pagination.prev_num, q=request.args.get('q', ''), department=request.args.get('department', '')) }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link" aria-hidden="true">&laquo;</span>
+                </li>
+                {% endif %}
+                
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=3) %}
+                    {% if page_num %}
+                        {% if page_num != pagination.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.list_jobs', page=page_num, q=request.args.get('q', ''), department=request.args.get('department', '')) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">
+                                {{ page_num }}
+                                <span class="visually-hidden">(current)</span>
+                            </span>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.list_jobs', page=pagination.next_num, q=request.args.get('q', ''), department=request.args.get('department', '')) }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link" aria-hidden="true">&raquo;</span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <i class="fas fa-briefcase fa-4x text-muted mb-3"></i>
+                <h3>No Job Postings Found</h3>
+                <p class="text-muted">There are currently no job postings that match your criteria.</p>
+            </div>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('admin.create_job') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Create Your First Job Posting
+            </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block title %}{{ resume.original_filename }} - Resume Analysis{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Resume Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        {{ resume.name or 'Resume' }}
+                    </h4>
+                    <div>
+                        <a href="{{ url_for('main.download_resume', resume_id=resume.id) }}" class="btn btn-sm btn-light me-2">
+                            <i class="fas fa-download me-1"></i> Download
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="#" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash me-1"></i> Delete
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="card-title">{{ resume.name or 'No Name Provided' }}</h5>
+                            {% if resume.email %}
+                            <p class="card-text mb-1">
+                                <i class="fas fa-envelope me-2 text-muted"></i>
+                                <a href="mailto:{{ resume.email }}">{{ resume.email }}</a>
+                            </p>
+                            {% endif %}
+                            {% if resume.phone %}
+                            <p class="card-text mb-1">
+                                <i class="fas fa-phone me-2 text-muted"></i>
+                                {{ resume.phone }}
+                            </p>
+                            {% endif %}
+                            <p class="card-text text-muted small mt-2">
+                                <i class="far fa-clock me-1"></i>
+                                Uploaded on {{ resume.upload_date.strftime('%B %d, %Y') }}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="resume-score">
+                                {% if resume.score is not none %}
+                                    {{ "%.0f"|format(resume.score) }}%
+                                    <div class="progress mt-2" style="height: 8px;">
+                                        {% if resume.score >= 80 %}
+                                        <div class="progress-bar bg-success" role="progressbar" 
+                                             style="width: {{ resume.score }}%" 
+                                             aria-valuenow="{{ resume.score }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                        {% elif resume.score >= 50 %}
+                                        <div class="progress-bar bg-warning" role="progressbar" 
+                                             style="width: {{ resume.score }}%" 
+                                             aria-valuenow="{{ resume.score }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                        {% else %}
+                                        <div class="progress-bar bg-danger" role="progressbar" 
+                                             style="width: {{ resume.score }}%" 
+                                             aria-valuenow="{{ resume.score }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">Match Score</small>
+                                {% else %}
+                                    <span class="text-muted">Not Scored</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Skills Section -->
+            {% if resume.skills %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Skills
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="skill-tags">
+                        {% for skill in resume.skills|from_json %}
+                            <span class="badge bg-primary mb-1 me-1">
+                                {{ skill }}
+                                {% if resume.matched_keywords and skill in resume.matched_keywords|from_json %}
+                                    <i class="fas fa-check ms-1"></i>
+                                {% endif %}
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Experience Section -->
+            {% if resume.experience %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-briefcase me-2"></i>
+                        Experience
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% set exp = resume.experience|from_json %}
+                    {% if exp.most_recent_title %}
+                    <h6>Most Recent Position</h6>
+                    <p class="mb-1"><strong>{{ exp.most_recent_title }}</strong></p>
+                    {% if exp.start_date %}
+                    <p class="text-muted small">
+                        <i class="far fa-calendar-alt me-1"></i>
+                        {{ exp.start_date }} - {{ exp.end_date or 'Present' }}
+                    </p>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted">No experience information available.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Education Section -->
+            {% if resume.education %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-graduation-cap me-2"></i>
+                        Education
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% set edu = resume.education|from_json %}
+                    {% if edu.degrees %}
+                        {% for degree in edu.degrees %}
+                            <p class="mb-1"><strong>{{ degree }}</strong></p>
+                            {% if edu.schools and loop.index <= edu.schools|length %}
+                                <p class="text-muted small">{{ edu.schools[loop.index0] }}</p>
+                            {% endif %}
+                            {% if not loop.last %}<hr>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No education information available.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Missing Keywords -->
+            {% if resume.missing_keywords and resume.missing_keywords|from_json|length > 0 %}
+            <div class="card mb-4 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Missing Keywords
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        The following keywords were found in the job description but are missing from this resume:
+                    </p>
+                    <div class="missing-keywords">
+                        {% for keyword in resume.missing_keywords|from_json %}
+                            <span class="badge bg-danger text-white mb-1 me-1">{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                    <p class="mt-3 text-muted small">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        Consider adding these keywords to improve your resume's match score.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Analysis Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Analysis Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6>Match Score</h6>
+                        <div class="progress" style="height: 25px;">
+                            {% if resume.score is not none %}
+                                {% if resume.score >= 80 %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ resume.score }}%" 
+                                     aria-valuenow="{{ resume.score }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ "%.0f"|format(resume.score) }}%
+                                </div>
+                                {% elif resume.score >= 50 %}
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     style="width: {{ resume.score }}%" 
+                                     aria-valuenow="{{ resume.score }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ "%.0f"|format(resume.score) }}%
+                                </div>
+                                {% else %}
+                                <div class="progress-bar bg-danger" role="progressbar" 
+                                     style="width: {{ resume.score }}%" 
+                                     aria-valuenow="{{ resume.score }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ "%.0f"|format(resume.score) }}%
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="progress-bar bg-secondary w-100">
+                                    Not Scored
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if resume.score is not none %}
+                            <div class="text-center mt-2">
+                                {% if resume.score >= 80 %}
+                                    <span class="badge bg-success">Excellent Match</span>
+                                {% elif resume.score >= 60 %}
+                                    <span class="badge bg-primary">Good Match</span>
+                                {% elif resume.score >= 40 %}
+                                    <span class="badge bg-warning text-dark">Fair Match</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Needs Improvement</span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>Keywords Match</h6>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Matched</span>
+                            <span>
+                                {% if resume.matched_keywords and resume.missing_keywords %}
+                                    {{ (resume.matched_keywords|from_json|length) / 
+                                       (resume.matched_keywords|from_json|length + resume.missing_keywords|from_json|length) * 100 | round | int }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            {% if resume.matched_keywords and resume.missing_keywords %}
+                                {% set matched_percent = (resume.matched_keywords|from_json|length) / 
+                                                       (resume.matched_keywords|from_json|length + resume.missing_keywords|from_json|length) * 100 %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ matched_percent }}%" 
+                                     aria-valuenow="{{ matched_percent }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100"></div>
+                            {% else %}
+                                <div class="progress-bar bg-secondary w-100"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6>Resume Strength</h6>
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <i class="fas fa-{% if resume.score >= 80 %}check-circle text-success{% elif resume.score >= 50 %}exclamation-circle text-warning{% else %}times-circle text-danger{% endif %} fa-2x"></i>
+                            </div>
+                            <div>
+                                {% if resume.score is none %}
+                                    <p class="mb-0">Upload a job description to analyze your resume's strength.</p>
+                                {% elif resume.score >= 80 %}
+                                    <p class="mb-0"><strong>Excellent!</strong> Your resume matches the job requirements very well.</p>
+                                {% elif resume.score >= 60 %}
+                                    <p class="mb-0"><strong>Good job!</strong> Your resume is a solid match, but could use some improvements.</p>
+                                {% elif resume.score >= 40 %}
+                                    <p class="mb-0"><strong>Fair.</strong> Your resume needs significant improvements to be competitive.</p>
+                                {% else %}
+                                    <p class="mb-0"><strong>Needs work.</strong> Your resume doesn't match the job requirements well.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if resume.job %}
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-briefcase me-2"></i>Job Position</h6>
+                        <p class="mb-0">
+                            <a href="{{ url_for('main.view_job', job_id=resume.job.id) }}" class="text-decoration-none">
+                                {{ resume.job.title }}
+                            </a>
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Actions
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#compareModal">
+                        <i class="fas fa-exchange-alt me-2 text-primary"></i> Compare with Job Description
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#shareModal">
+                        <i class="fas fa-share-alt me-2 text-primary"></i> Share Analysis
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#exportModal">
+                        <i class="fas fa-file-export me-2 text-primary"></i> Export as PDF
+                    </a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin.edit_resume', resume_id=resume.id) }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-edit me-2 text-primary"></i> Edit Resume
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Tips to Improve
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% if resume.score is none %}
+                            <li class="mb-2">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                Upload a job description to get personalized tips.
+                            </li>
+                        {% else %}
+                            {% if resume.score < 70 %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Add more relevant skills from the missing keywords list.
+                                </li>
+                            {% endif %}
+                            {% if not resume.experience %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Add your work experience with measurable achievements.
+                                </li>
+                            {% endif %}
+                            {% if not resume.education %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Include your educational background and certifications.
+                                </li>
+                            {% endif %}
+                            {% if resume.score < 80 %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Use action verbs and quantify achievements (e.g., "Increased sales by 30%").
+                                </li>
+                            {% endif %}
+                        {% endif %}
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Keep your resume concise (1-2 pages).
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this resume? This action cannot be undone.</p>
+                <p class="mb-0"><strong>File:</strong> {{ resume.original_filename }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('admin.delete_resume', resume_id=resume.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Permanently
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compare with JD Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1" aria-labelledby="compareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="compareModalLabel">Compare with Job Description</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% if resume.job %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Job Description</h6>
+                                </div>
+                                <div class="card-body">
+                                    <h5>{{ resume.job.title }}</h5>
+                                    <div class="job-description">
+                                        {{ resume.job.description|nl2br|safe }}
+                                    </div>
+                                    <h6 class="mt-4">Requirements</h6>
+                                    <div class="requirements">
+                                        {{ resume.job.requirements|nl2br|safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Your Resume</h6>
+                                </div>
+                                <div class="card-body">
+                                    <h5>{{ resume.name or 'Your Resume' }}</h5>
+                                    
+                                    <h6 class="mt-4">Skills</h6>
+                                    <div class="mb-3">
+                                        {% if resume.skills %}
+                                            {% for skill in resume.skills|from_json %}
+                                                <span class="badge bg-light text-dark mb-1 me-1">{{ skill }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <p class="text-muted">No skills listed</p>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <h6>Experience</h6>
+                                    <div class="mb-3">
+                                        {% set exp = resume.experience|from_json if resume.experience else {} %}
+                                        {% if exp.most_recent_title %}
+                                            <p class="mb-1"><strong>{{ exp.most_recent_title }}</strong></p>
+                                            {% if exp.start_date %}
+                                                <p class="text-muted small mb-2">
+                                                    {{ exp.start_date }} - {{ exp.end_date or 'Present' }}
+                                                </p>
+                                            {% endif %}
+                                        {% else %}
+                                            <p class="text-muted">No experience listed</p>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <h6>Education</h6>
+                                    <div>
+                                        {% if resume.education %}
+                                            {% set edu = resume.education|from_json %}
+                                            {% if edu.degrees %}
+                                                {% for degree in edu.degrees %}
+                                                    <p class="mb-1"><strong>{{ degree }}</strong></p>
+                                                    {% if edu.schools and loop.index <= edu.schools|length %}
+                                                        <p class="text-muted small">{{ edu.schools[loop.index0] }}</p>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <p class="text-muted">No education listed</p>
+                                            {% endif %}
+                                        {% else %}
+                                            <p class="text-muted">No education listed</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-file-alt fa-4x text-muted"></i>
+                        </div>
+                        <h5>No Job Description</h5>
+                        <p class="text-muted">This resume hasn't been compared with a job description yet.</p>
+                        <a href="{{ url_for('main.list_jobs') }}" class="btn btn-primary">
+                            <i class="fas fa-briefcase me-2"></i>Browse Jobs
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                {% if resume.job %}
+                    <a href="{{ url_for('main.view_job', job_id=resume.job.id) }}" class="btn btn-primary">
+                        <i class="fas fa-external-link-alt me-1"></i> View Job Details
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareModalLabel">Share Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="shareLink" class="form-label">Shareable Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" 
+                               value="{{ url_for('main.view_resume', resume_id=resume.id, _external=True) }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="copyLinkBtn">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="form-text">Anyone with this link can view this resume analysis.</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Share via</label>
+                    <div class="d-flex gap-2">
+                        <a href="mailto:?subject=Resume%20Analysis&body=Check%20out%20my%20resume%20analysis:%20{{ url_for('main.view_resume', resume_id=resume.id, _external=True) }}" 
+                           class="btn btn-outline-primary flex-grow-1">
+                            <i class="fas fa-envelope me-1"></i> Email
+                        </a>
+                        <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ url_for('main.view_resume', resume_id=resume.id, _external=True) }}" 
+                           target="_blank" 
+                           class="btn btn-outline-primary flex-grow-1">
+                            <i class="fab fa-linkedin me-1"></i> LinkedIn
+                        </a>
+                        <a href="https://twitter.com/intent/tweet?url={{ url_for('main.view_resume', resume_id=resume.id, _external=True) }}&text=Check%20out%20my%20resume%20analysis" 
+                           target="_blank" 
+                           class="btn btn-outline-primary flex-grow-1">
+                            <i class="fab fa-twitter me-1"></i> Twitter
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    For privacy reasons, make sure you trust the people you share this link with.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">Export Resume Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h6>Export Format</h6>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="exportFormat" id="formatPdf" value="pdf" checked>
+                        <label class="form-check-label" for="formatPdf">
+                            <i class="far fa-file-pdf me-2 text-danger"></i>PDF Document
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="exportFormat" id="formatDocx" value="docx">
+                        <label class="form-check-label" for="formatDocx">
+                            <i class="far fa-file-word me-2 text-primary"></i>Microsoft Word
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="exportFormat" id="formatTxt" value="txt">
+                        <label class="form-check-label" for="formatTxt">
+                            <i class="far fa-file-alt me-2 text-muted"></i>Plain Text
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="exportOptions" class="form-label">Options</label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="includeScore" checked>
+                        <label class="form-check-label" for="includeScore">
+                            Include match score and analysis
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="includeKeywords" checked>
+                        <label class="form-check-label" for="includeKeywords">
+                            Include matched and missing keywords
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="includeTips" checked>
+                        <label class="form-check-label" for="includeTips">
+                            Include improvement tips
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Note: Some formatting may be lost in the exported file.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="exportBtn">
+                    <i class="fas fa-download me-1"></i> Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Copy share link to clipboard
+    document.getElementById('copyLinkBtn').addEventListener('click', function() {
+        const shareLink = document.getElementById('shareLink');
+        shareLink.select();
+        document.execCommand('copy');
+        
+        // Show tooltip or feedback
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        this.classList.add('btn-success');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+            this.innerHTML = originalText;
+            this.classList.remove('btn-success');
+        }, 2000);
+    });
+    
+    // Handle export button click
+    document.getElementById('exportBtn').addEventListener('click', function() {
+        const format = document.querySelector('input[name="exportFormat"]:checked').value;
+        const includeScore = document.getElementById('includeScore').checked;
+        const includeKeywords = document.getElementById('includeKeywords').checked;
+        const includeTips = document.getElementById('includeTips').checked;
+        
+        // Show loading state
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
+        
+        // In a real app, this would make an API call to generate the export
+        // For now, we'll just simulate a delay and show a success message
+        setTimeout(() => {
+            // Reset button
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+            modal.hide();
+            
+            // Show success message
+            const toast = new bootstrap.Toast(document.getElementById('exportToast'));
+            toast.show();
+            
+            // In a real app, you would start a download here
+            // window.location.href = `/export/resume/{{ resume.id }}?format=${format}&score=${includeScore}&keywords=${includeKeywords}&tips=${includeTips}`;
+        }, 1500);
+    });
+    
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+</script>
+{% endblock %}

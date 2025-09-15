@@ -1,0 +1,485 @@
+{% extends "admin/dashboard.html" %}
+
+{% block title %}Manage Jobs - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Manage Job Postings</h1>
+        <div>
+            <a href="{{ url_for('admin.export_jobs') }}" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm me-2">
+                <i class="fas fa-download fa-sm text-white-50"></i> Export to Excel
+            </a>
+            <a href="{{ url_for('admin.create_job') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+                <i class="fas fa-plus fa-sm text-white-50"></i> Create New Job
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Filter Jobs</h6>
+            <button class="btn btn-link text-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <i class="fas fa-filter"></i> Toggle Filters
+            </button>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="draft" {% if request.args.get('status') == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="published" {% if request.args.get('status') == 'published' %}selected{% endif %}>Published</option>
+                            <option value="closed" {% if request.args.get('status') == 'closed' %}selected{% endif %}>Closed</option>
+                            <option value="archived" {% if request.args.get('status') == 'archived' %}selected{% endif %}>Archived</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-select" id="department" name="department">
+                            <option value="">All Departments</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if request.args.get('department') == dept %}selected{% endif %}>
+                                {{ dept }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="job_type" class="form-label">Job Type</label>
+                        <select class="form-select" id="job_type" name="job_type">
+                            <option value="">All Types</option>
+                            <option value="full-time" {% if request.args.get('job_type') == 'full-time' %}selected{% endif %}>Full-time</option>
+                            <option value="part-time" {% if request.args.get('job_type') == 'part-time' %}selected{% endif %}>Part-time</option>
+                            <option value="contract" {% if request.args.get('job_type') == 'contract' %}selected{% endif %}>Contract</option>
+                            <option value="internship" {% if request.args.get('job_type') == 'internship' %}selected{% endif %}>Internship</option>
+                            <option value="temporary" {% if request.args.get('job_type') == 'temporary' %}selected{% endif %}>Temporary</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="location" class="form-label">Location</label>
+                        <select class="form-select" id="location" name="location">
+                            <option value="">All Locations</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc }}" {% if request.args.get('location') == loc %}selected{% endif %}>
+                                {{ loc }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search by job title, description, or requirements..." 
+                                   name="q" value="{{ request.args.get('q', '') }}">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                            <a href="{{ url_for('admin.manage_jobs') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync-alt"></i> Reset
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jobs Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Job Postings</h6>
+            <div>
+                <span class="badge bg-primary rounded-pill">{{ pagination.total }} total</span>
+                <span class="badge bg-success rounded-pill">{{ stats.published }} published</span>
+                <span class="badge bg-warning text-dark rounded-pill">{{ stats.draft }} drafts</span>
+                <span class="badge bg-secondary rounded-pill">{{ stats.closed }} closed</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="jobsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Job Title</th>
+                            <th>Department</th>
+                            <th>Location</th>
+                            <th>Type</th>
+                            <th>Applications</th>
+                            <th>Status</th>
+                            <th>Posted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0 me-2">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded p-1">
+                                            <i class="fas fa-briefcase"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">{{ job.title }}</h6>
+                                        <small class="text-muted">#{{ job.id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ job.department or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                                    {{ job.location }}
+                                    {% if job.is_remote %}
+                                    <span class="badge bg-success ms-2">Remote</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-dark">{{ job.job_type|title or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                        <div class="progress-bar bg-success" role="progressbar" 
+                                             style="width: {{ (job.application_count / (job.application_target or 1) * 100)|min(100) }}%" 
+                                             aria-valuenow="{{ job.application_count }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="{{ job.application_target or 100 }}">
+                                        </div>
+                                    </div>
+                                    <span class="small">{{ job.application_count }}</span>
+                                </div>
+                                <small class="text-muted">Target: {{ job.application_target or 'N/A' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge {% if job.status == 'published' %}bg-success
+                                                {% elif job.status == 'draft' %}bg-warning text-dark
+                                                {% elif job.status == 'closed' %}bg-secondary
+                                                {% elif job.status == 'archived' %}bg-dark
+                                                {% else %}bg-info{% %} p-2">
+                                    {{ job.status|title }}
+                                </span>
+                                {% if job.is_featured %}
+                                <span class="badge bg-danger ms-1">Featured</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <div>Posted: {{ job.posted_date.strftime('%b %d, %Y') if job.posted_date else 'N/A' }}</div>
+                                    <div>Closes: {{ job.closing_date.strftime('%b %d, %Y') if job.closing_date else 'N/A' }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin.view_job', job_id=job.id) }}" 
+                                       class="btn btn-sm btn-info" 
+                                       data-bs-toggle="tooltip" 
+                                       title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.edit_job', job_id=job.id) }}" 
+                                       class="btn btn-sm btn-primary" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-warning" 
+                                            data-bs-toggle="tooltip" 
+                                            title="{% if job.status == 'published' %}Unpublish{% else %}Publish{% endif %}"
+                                            onclick="updateJobStatus({{ job.id }}, '{{ 'unpublish' if job.status == 'published' else 'publish' }}')">
+                                        <i class="fas {% if job.status == 'published' %}fa-eye-slash{% else %}fa-eye{% endif %}"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ job.id }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Delete Modal -->
+                                <div class="modal fade" id="deleteModal{{ job.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Deletion</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete this job posting?</p>
+                                                <p class="mb-0"><strong>Job Title:</strong> {{ job.title }}</p>
+                                                <p class="mb-0"><strong>Department:</strong> {{ job.department or 'N/A' }}</p>
+                                                <p class="mb-0"><strong>Location:</strong> {{ job.location or 'N/A' }}</p>
+                                                
+                                                {% if job.application_count > 0 %}
+                                                <div class="alert alert-warning mt-3">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    This job has {{ job.application_count }} application(s). Deleting it will also remove all associated applications.
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form action="{{ url_for('admin.delete_job', job_id=job.id) }}" method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-trash me-1"></i> Delete Job
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <h5>No jobs found</h5>
+                                    <p class="mb-0">Create your first job posting to get started</p>
+                                    <a href="{{ url_for('admin.create_job') }}" class="btn btn-primary mt-3">
+                                        <i class="fas fa-plus me-1"></i> Create Job
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-muted">
+                    Showing <span class="fw-bold">{{ pagination.first }}</span> to <span class="fw-bold">{{ pagination.last }}</span> of 
+                    <span class="fw-bold">{{ pagination.total }}</span> jobs
+                </div>
+                <nav aria-label="Job pagination">
+                    <ul class="pagination mb-0">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.manage_jobs', page=pagination.prev_num, **request.args) }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&laquo;</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=3) %}
+                            {% if page_num %}
+                                {% if page_num != pagination.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.manage_jobs', page=page_num, **request.args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active" aria-current="page">
+                                    <span class="page-link">
+                                        {{ page_num }}
+                                        <span class="visually-hidden">(current)</span>
+                                    </span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.manage_jobs', page=pagination.next_num, **request.args) }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&raquo;</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    /* Custom scrollbar for table */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .badge {
+        font-weight: 500;
+    }
+    
+    .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        color: #6c757d;
+        font-size: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Enable tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Initialize DataTable
+    document.addEventListener('DOMContentLoaded', function() {
+        $('#jobsTable').DataTable({
+            "order": [[6, "desc"]], // Sort by posted date by default
+            "pageLength": 25,
+            "responsive": true,
+            "dom": "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                   "<'row'<'col-sm-12'tr>>" +
+                   "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search...",
+                "lengthMenu": "Show _MENU_ entries",
+                "info": "Showing _START_ to _END_ of _TOTAL_ entries",
+                "infoEmpty": "No entries found",
+                "infoFiltered": "(filtered from _MAX_ total entries)",
+                "paginate": {
+                    "previous": "<i class='fas fa-chevron-left'></i>",
+                    "next": "<i class='fas fa-chevron-right'></i>"
+                }
+            },
+            "columnDefs": [
+                { "orderable": false, "targets": [7] } // Disable sorting on actions column
+            ]
+        });
+    });
+    
+    // Function to update job status (publish/unpublish)
+    function updateJobStatus(jobId, action) {
+        const url = `{{ url_for('admin.update_job_status', job_id=0) }}`.replace('0', jobId);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                action: action
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const toast = new bootstrap.Toast(document.getElementById('statusToast'));
+                const toastMessage = document.getElementById('toastMessage');
+                toastMessage.textContent = data.message;
+                toast.show();
+                
+                // Reload the page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                throw new Error(data.message || 'Failed to update job status');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the job status: ' + error.message);
+        });
+    }
+    
+    // Initialize clipboard for copying job links
+    document.querySelectorAll('.copy-job-link').forEach(button => {
+        button.addEventListener('click', function() {
+            const jobId = this.getAttribute('data-job-id');
+            const jobLink = `${window.location.origin}/jobs/${jobId}`;
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(jobLink).then(() => {
+                // Show tooltip
+                const tooltip = new bootstrap.Tooltip(button, {
+                    title: 'Link copied!',
+                    trigger: 'manual'
+                });
+                tooltip.show();
+                
+                // Hide after 2 seconds
+                setTimeout(() => {
+                    tooltip.hide();
+                    button.blur();
+                }, 2000);
+            });
+        });
+    });
+</script>
+
+<!-- Status Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="statusToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-success text-white">
+            <strong class="me-auto">Success</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            Job status updated successfully!
+        </div>
+    </div>
+</div>
+{% endblock %}
